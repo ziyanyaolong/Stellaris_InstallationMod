@@ -1,0 +1,2 @@
+# Stellaris_InstallationMod
+对于离线下载的群星mod进行自动配置
