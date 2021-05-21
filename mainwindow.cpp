@@ -17,10 +17,10 @@ MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
-
+    QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
     makerColor = new QTimer;
     makerColor->start(10);
-    ui->lineEdit->setText("F:/GOG Games/Stellaris/mods");
+    ui->lineEdit->setText("H:/ggg");
     ui->lineEdit_2->setText("H:/ppp");
     ui->lineEdit_3->setText("F:/GOG Games/Stellaris/mods");
     connect(makerColor, &QTimer::timeout, this, [=]
