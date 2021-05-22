@@ -28,5 +28,7 @@ private slots:
     void setModFolder();
     void setModIndex();
     void modeTest();
+    bool saveFilePath(QString a, QString b, QString c);
+    QStringList readFilePath();
 };
 #endif // MAINWINDOW_H

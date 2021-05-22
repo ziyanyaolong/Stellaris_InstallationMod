@@ -20,9 +20,24 @@ MainWindow::MainWindow(QWidget *parent)
     QTextCodec::setCodecForLocale(QTextCodec::codecForName("UTF-8"));
     makerColor = new QTimer;
     makerColor->start(10);
-    ui->lineEdit->setText("H:/ggg");
-    ui->lineEdit_2->setText("H:/ppp");
-    ui->lineEdit_3->setText("F:/GOG Games/Stellaris/mods");
+
+    QStringList temp = readFilePath();
+    if(temp.isEmpty())
+    {
+        ui->lineEdit->setText("");
+        ui->lineEdit_2->setText("");
+        ui->lineEdit_3->setText("");
+    }else
+    {
+        for (QStringList::iterator i = temp.begin(); i != temp.end() ;i++)
+        {
+            *i = i->trimmed();
+        }
+        ui->lineEdit->setText(temp[0]);
+        ui->lineEdit_2->setText(temp[1]);
+        ui->lineEdit_3->setText(temp[2]);
+    }
+
     connect(makerColor, &QTimer::timeout, this, [=]
             {
                 static bool peTemp = false;
@@ -52,13 +67,22 @@ MainWindow::MainWindow(QWidget *parent)
 
     //(...)按钮选择路径
     connect(ui->pushButton_2, &QPushButton::clicked, this, [=]()
-            { ui->lineEdit_3->setText(QFileDialog::getExistingDirectory(this, "选择文件夹")); });
+            {
+                ui->lineEdit_3->setText(QFileDialog::getExistingDirectory(this, "选择文件夹"));
+                saveFilePath(ui->lineEdit->text(),ui->lineEdit_2->text(),ui->lineEdit_3->text());
+            });
 
     connect(ui->pushButton_3, &QPushButton::clicked, this, [=]()
-            { ui->lineEdit_2->setText(QFileDialog::getExistingDirectory(this, "选择文件夹")); });
+            {
+                ui->lineEdit_2->setText(QFileDialog::getExistingDirectory(this, "选择文件夹"));
+                saveFilePath(ui->lineEdit->text(),ui->lineEdit_2->text(),ui->lineEdit_3->text());
+            });
 
     connect(ui->pushButton_4, &QPushButton::clicked, this, [=]()
-            { ui->lineEdit->setText(QFileDialog::getExistingDirectory(this, "选择文件夹")); });
+            {
+                ui->lineEdit->setText(QFileDialog::getExistingDirectory(this, "选择文件夹"));
+                saveFilePath(ui->lineEdit->text(),ui->lineEdit_2->text(),ui->lineEdit_3->text());
+            });
 
     connect(ui->pushButton_5, &QPushButton::clicked, this, [=]()
             {
@@ -94,6 +118,7 @@ MainWindow::MainWindow(QWidget *parent)
 
     //启动开关
     connect(ui->pushButton, &QPushButton::clicked, this, &MainWindow::modeTest);
+
 }
 
 void MainWindow::modeTest()
@@ -314,6 +339,7 @@ void MainWindow::setModFolder()
         ui->textBrowser->insertPlainText("请检查各mod文件夹下是否有压缩包文件，请解压后再重试！（其他文件已操作成功）\n");
     }
 }
+
 void MainWindow::setModIndex()
 {
     unsigned int number = 0;
@@ -480,6 +506,34 @@ void MainWindow::setModIndex()
     {
         ui->textBrowser->insertPlainText("请检查各mod文件夹下是否有压缩包文件，请解压后再重试！（其他文件已操作成功）\n");
     }
+}
+
+bool MainWindow::saveFilePath(QString a, QString b, QString c)
+{
+    QFile file(QDir::currentPath() + "/" + "SavePath");
+    if(!file.open(QIODevice::WriteOnly))
+    {
+        return false;
+    }
+    file.write(QString(a + "\n").toLocal8Bit());
+    file.write(QString(b + "\n").toLocal8Bit());
+    file.write(QString(c + "\n").toLocal8Bit());
+    return true;
+}
+
+QStringList MainWindow::readFilePath()
+{
+    QStringList temp;
+    QFile file(QDir::currentPath() + "/" + "SavePath");
+    if(!file.open(QIODevice::ReadOnly))
+    {
+        return temp;
+    }
+    for (int i = 0; i < 3; i ++)
+    {
+        temp.push_back(file.readLine());
+    }
+    return temp;
 }
 
 //文件夹拷贝函数（借鉴于网上代码）
