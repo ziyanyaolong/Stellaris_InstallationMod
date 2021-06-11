@@ -5,6 +5,9 @@
 #include <QFile>
 #include <QTextStream>
 #include <QDir>
+#include <QThread>
+
+#include "updateinspection.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -16,19 +19,27 @@ class MainWindow : public QMainWindow
 
 public:
     MainWindow(QWidget *parent = nullptr);
-    bool copyDir(const QString &source, const QString &destination, bool override);
     ~MainWindow();
 
 private:
+    QStringList errorList;
+    QStringList httpsList;
     Ui::MainWindow *ui;
     QTimer * makerColor;
+
     int mode = 0;
     int modeDirCopy = 0;
+
+    QStringList readCatalogue(const QString &path);
+
+    bool deleteDir(const QString &path);
+    bool copyDir(const QString &source, const QString &destination, bool override);
+
 private slots:
     void setModFolder();
     void setModIndex();
     void modeTest();
-    bool saveFilePath(QString a, QString b, QString c);
+    bool saveFilePath(const QString &a, const QString &b, const QString &c);
     QStringList readFilePath();
 };
 #endif // MAINWINDOW_H

@@ -132,6 +132,13 @@
         </widget>
        </item>
        <item>
+        <widget class="QPushButton" name="pushButton_7">
+         <property name="text">
+          <string>检测更新</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QLabel" name="label_4">
          <property name="font">
           <font>

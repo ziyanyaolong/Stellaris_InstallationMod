@@ -12,6 +12,7 @@
 #include <QWidget>
 #include <QTimer>
 #include <QPalette>
+#include <QSslSocket>
 
 MainWindow::MainWindow(QWidget *parent)
     : QMainWindow(parent), ui(new Ui::MainWindow)
@@ -84,6 +85,52 @@ MainWindow::MainWindow(QWidget *parent)
                 saveFilePath(ui->lineEdit->text(),ui->lineEdit_2->text(),ui->lineEdit_3->text());
             });
 
+    connect(ui->pushButton_7, &QPushButton::clicked, this, [=]()
+            {
+                ui->textBrowser->insertPlainText("开始更新检测\n");
+                UpdateInspection::setDirPath(ui->lineEdit_3->text());
+                ui->textBrowser->moveCursor(QTextCursor::End);
+                UpdateInspection *updateInspection = new UpdateInspection();
+
+                connect(updateInspection, &UpdateInspection::finished, this, [&](){
+                    ui->textBrowser->insertPlainText("检测完成\n");
+                    if(httpsList.size() != 0)
+                    {
+                        ui->textBrowser->moveCursor(QTextCursor::End);
+                        ui->textBrowser->insertPlainText("需要更新的mod的地址如下\n");
+                        for(int i = 0; i < httpsList.size(); i++)
+                        {
+                            ui->textBrowser->insertPlainText(QString("https://steamcommunity.com/sharedfiles/filedetails/?id=") + httpsList[i] + "\n");
+                        }
+                    }else
+                    {
+                        ui->textBrowser->moveCursor(QTextCursor::End);
+                        ui->textBrowser->insertPlainText("所有mod均已最新\n");
+                    }
+
+                    if(errorList.size() != 0)
+                    {
+                        ui->textBrowser->moveCursor(QTextCursor::End);
+                        ui->textBrowser->insertPlainText("检测到error的地址如下\n");
+                        for(int i = 0; i < errorList.size(); i++)
+                        {
+                            ui->textBrowser->insertPlainText(QString("https://steamcommunity.com/sharedfiles/filedetails/?id=") + errorList[i] + "\n");
+                        }
+                    }
+                });
+                connect(updateInspection, &UpdateInspection::haveInfo, this, [=](QString info){
+                    if(info.indexOf("error") != -1)
+                    {
+                        errorList.push_back(info.mid(0,info.indexOf(":")));
+                    }else
+                    {
+                        httpsList.push_back(info.mid(0,info.indexOf(":")));
+                    }
+                    ui->textBrowser->insertPlainText(info);
+                });
+                updateInspection->start();
+            });
+
     connect(ui->pushButton_5, &QPushButton::clicked, this, [=]()
             {
                 if (mode == 0)
@@ -135,6 +182,7 @@ void MainWindow::modeTest()
     {
         mode = 1;
         emit ui->pushButton_5->clicked();
+        ui->textBrowser->moveCursor(QTextCursor::End);
         ui->textBrowser->insertPlainText("模式错误，已重置");
     }
 }
@@ -145,6 +193,7 @@ void MainWindow::setModFolder()
     QString modFile = ui->lineEdit->text();
     QString modIndex = ui->lineEdit_2->text();
     QString modOntology = ui->lineEdit_3->text();
+
     //替换mod文件夹路径的\为/
     for (int i = 0; i < modOntology.size(); i++)
     {
@@ -161,18 +210,21 @@ void MainWindow::setModFolder()
     //检测地址是否为空，为空则提示，并且直接退出函数
     if (modIndex.isEmpty())
     {
+        ui->textBrowser->moveCursor(QTextCursor::End);
         ui->textBrowser->insertPlainText("mod索引文件放置地址不能为空\n");
         return;
     }
 
     if (modOntology.isEmpty())
     {
+        ui->textBrowser->moveCursor(QTextCursor::End);
         ui->textBrowser->insertPlainText("mod本体放置地址不能为空\n");
         return;
     }
 
     if (modFile.isEmpty())
     {
+        ui->textBrowser->moveCursor(QTextCursor::End);
         ui->textBrowser->insertPlainText("原mod文件夹地址不能为空\n");
         return;
     }
@@ -213,6 +265,7 @@ void MainWindow::setModFolder()
                 {
                     //失败就退出，并增加计数和发出提示
                     numberS++;
+                    ui->textBrowser->moveCursor(QTextCursor::End);
                     ui->textBrowser->insertPlainText(modNumber + " NO\n");
                     continue;
                 }
@@ -243,7 +296,6 @@ void MainWindow::setModFolder()
                         {
                             if (mtemp2[ccc].indexOf("path=") != -1)
                             {
-                                //                                qDebug() << mtemp2[ccc];
                                 circulation = true;
                                 mtemp2.erase(iii);
                                 break;
@@ -259,6 +311,7 @@ void MainWindow::setModFolder()
                     {
                         //失败就退出，并增加计数和发出提示
                         numberS++;
+                        ui->textBrowser->moveCursor(QTextCursor::End);
                         ui->textBrowser->insertPlainText(modNumber + " NO\n");
                         continue;
                     }
@@ -283,21 +336,58 @@ void MainWindow::setModFolder()
                     }
                 }
                 //拷贝.mod文件
-                if (QFile::copy(QString(info2.path() + "/" + modNumber + ".mod"), QString(modIndex + "/" + modNumber + ".mod")))
+                QString oldFilePath = info2.path() + "/" + modNumber + ".mod";
+                QString newFilePath = modIndex + "/" + modNumber + ".mod";
+
+                QFile tempFile(newFilePath);
+
+                if(tempFile.size() != 0)
+                {
+                    if(tempFile.remove())
+                    {
+                        ui->textBrowser->moveCursor(QTextCursor::End);
+                        ui->textBrowser->insertPlainText(modNumber + ".mod" + QString("是重复文件，已替换") + "\n");
+                    }else
+                    {
+                        ui->textBrowser->moveCursor(QTextCursor::End);
+                        ui->textBrowser->insertPlainText(modNumber + ".mod" + QString("是重复文件，出现错误，无法替换") + "\n");
+                    }
+                }
+                if (QFile::copy(oldFilePath, newFilePath))
                 {
                     if (modeDirCopy == 0)
                     {
+                        QString oldDirPath = info2.path();
+                        QString newDirPath = ui->lineEdit_3->text() + "/" + info.fileName();
+
+                        QDir tempDir(newDirPath);
+
+                        if(!tempDir.isEmpty())
+                        {
+                            if(deleteDir(newDirPath))
+                            {
+                                ui->textBrowser->moveCursor(QTextCursor::End);
+                                ui->textBrowser->insertPlainText(info.fileName() + QString("是重复文件夹，已替换") + "\n");
+                            }else
+                            {
+                                ui->textBrowser->moveCursor(QTextCursor::End);
+                                ui->textBrowser->insertPlainText(info.fileName() + QString("是重复文件夹，出现错误，无法替换") + "\n");
+                            }
+                        }
+
                         //如果成功则进一步拷贝mod本体文件夹
-                        if (copyDir(QString(info2.path()), QString(ui->lineEdit_3->text() + "/" + info.fileName()), true))
+                        if (copyDir(oldDirPath, newDirPath, false))
                         {
                             //两个（mod索引和mod本体文件夹）拷贝都成功后计数加一并提示
                             numberC++;
+                            ui->textBrowser->moveCursor(QTextCursor::End);
                             ui->textBrowser->insertPlainText(modNumber + " 文件夹OK\n");
                         }
                         else
                         {
                             //失败就退出，并增加计数和发出提示，但是mod索引文件拷贝已成功，可以到你自己设置的mod索引放置位置查看
                             numberS++;
+                            ui->textBrowser->moveCursor(QTextCursor::End);
                             ui->textBrowser->insertPlainText(modNumber + " 文件夹NO\n");
                             continue;
                         }
@@ -311,12 +401,14 @@ void MainWindow::setModFolder()
                         exit(1);
                     }
 
+                    ui->textBrowser->moveCursor(QTextCursor::End);
                     ui->textBrowser->insertPlainText(modNumber + " 索引文件OK\n");
                 }
                 else
                 {
                     //失败就退出，并增加计数和发出提示（此时mod索引文件和mod本体文件拷贝都失败）
                     numberS++;
+                    ui->textBrowser->moveCursor(QTextCursor::End);
                     ui->textBrowser->insertPlainText(modNumber + " 索引文件NO\n");
                     continue;
                 }
@@ -324,18 +416,22 @@ void MainWindow::setModFolder()
         }
         if (!dirTest)
         {
+            ui->textBrowser->moveCursor(QTextCursor::End);
             ui->textBrowser->insertPlainText(info.fileName() + " 此文件夹为空\n");
         }
     }
 
     //完成发出提示
+    ui->textBrowser->moveCursor(QTextCursor::End);
     ui->textBrowser->insertPlainText(QString("项目数目：") + QString::number(number) + "\n");
     ui->textBrowser->insertPlainText(QString("成功项目：") + QString::number(numberC) + "\n");
     ui->textBrowser->insertPlainText(QString("失败项目：") + QString::number(numberS) + "\n");
+    ui->textBrowser->moveCursor(QTextCursor::End);
 
     //如果成功数量不等于项目数量且失败数量为零，则有mod文件夹下有压缩包文件，需要解压后才能导出（可以使用搜索功能来搜索压缩文件）（自动解压缩待写）
     if ((number != numberC) && (numberS == 0))
     {
+        ui->textBrowser->moveCursor(QTextCursor::End);
         ui->textBrowser->insertPlainText("请检查各mod文件夹下是否有压缩包文件，请解压后再重试！（其他文件已操作成功）\n");
     }
 }
@@ -351,17 +447,7 @@ void MainWindow::setModIndex()
     QString modIndex = ui->lineEdit_2->text();
     QString modOntology = ui->lineEdit_3->text();
 
-    QDir dir2(modOntology);
-    QFileInfoList info_list2 = dir2.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
-    QListIterator<QFileInfo> j(info_list2);
     QStringList mods;
-
-    //循环检测直到结束
-    while (j.hasNext())
-    {
-        QFileInfo info = j.next();
-        mods.append(info.fileName());
-    }
 
     QDir dir(ui->lineEdit->text());
     QFileInfoList info_list = dir.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
@@ -385,6 +471,7 @@ void MainWindow::setModIndex()
             {
                 //失败就退出，并增加计数和发出提示
                 numberS++;
+                ui->textBrowser->moveCursor(QTextCursor::End);
                 ui->textBrowser->insertPlainText(modNumber + " NO\n");
                 continue;
             }
@@ -436,7 +523,6 @@ void MainWindow::setModIndex()
                     if (mods[ccc].indexOf(modNumber) != -1)
                     {
                         modName = mods[ccc];
-                        qDebug() << modName;
                         mods.erase(jjj);
                         break;
                     }
@@ -444,12 +530,12 @@ void MainWindow::setModIndex()
                 }
                 mtemp2.append(QString("path=\"" + modOntology + "/" + modName + "\""));
                 QFile modFile2(info.path() + "/" + modNumber + ".mod");
-                qDebug() << info.path() + "/" + modNumber + ".mod";
                 //把mtemp2的内容写入到新文件中去
                 if (!modFile2.open(QIODevice::WriteOnly))
                 {
                     //失败就退出，并增加计数和发出提示
                     numberS++;
+                    ui->textBrowser->moveCursor(QTextCursor::End);
                     ui->textBrowser->insertPlainText(modNumber + " NO\n");
                     continue;
                 }
@@ -484,12 +570,14 @@ void MainWindow::setModIndex()
             if (QFile::copy(QString(info.path() + "/" + modNumber + ".mod"), QString(modIndex + "/" + modNumber + ".mod")))
             {
                 numberC++;
+                ui->textBrowser->moveCursor(QTextCursor::End);
                 ui->textBrowser->insertPlainText(modNumber + " 索引文件OK\n");
             }
             else
             {
                 //失败就退出，并增加计数和发出提示（此时mod索引文件和mod本体文件拷贝都失败）
                 numberS++;
+                ui->textBrowser->moveCursor(QTextCursor::End);
                 ui->textBrowser->insertPlainText(modNumber + " 索引文件NO\n");
                 continue;
             }
@@ -497,6 +585,7 @@ void MainWindow::setModIndex()
     }
 
     //完成发出提示
+    ui->textBrowser->moveCursor(QTextCursor::End);
     ui->textBrowser->insertPlainText(QString("项目数目：") + QString::number(number) + "\n");
     ui->textBrowser->insertPlainText(QString("成功项目：") + QString::number(numberC) + "\n");
     ui->textBrowser->insertPlainText(QString("失败项目：") + QString::number(numberS) + "\n");
@@ -504,11 +593,12 @@ void MainWindow::setModIndex()
     //如果成功数量不等于项目数量且失败数量为零，则有mod文件夹下有压缩包文件，需要解压后才能导出（可以使用搜索功能来搜索压缩文件）（自动解压缩待写）
     if ((number != numberC) && (numberS == 0))
     {
+        ui->textBrowser->moveCursor(QTextCursor::End);
         ui->textBrowser->insertPlainText("请检查各mod文件夹下是否有压缩包文件，请解压后再重试！（其他文件已操作成功）\n");
     }
 }
 
-bool MainWindow::saveFilePath(QString a, QString b, QString c)
+bool MainWindow::saveFilePath(const QString &a, const QString &b, const QString &c)
 {
     QFile file(QDir::currentPath() + "/" + "SavePath");
     if(!file.open(QIODevice::WriteOnly))
@@ -536,49 +626,82 @@ QStringList MainWindow::readFilePath()
     return temp;
 }
 
+
 //文件夹拷贝函数（借鉴于网上代码）
 bool MainWindow::copyDir(const QString &source, const QString &destination, bool override)
 {
-    QDir directory(source);
-    if (!directory.exists())
+    QDir sourceDir(source);
+    QDir targetDir(destination);
+    if(!targetDir.exists()){    /**< 如果目标目录不存在，则进行创建 */
+        if(!targetDir.mkdir(targetDir.absolutePath()))
+            return false;
+    }
+
+    QFileInfoList fileInfoList = sourceDir.entryInfoList();
+    foreach(QFileInfo fileInfo, fileInfoList){
+        if(fileInfo.fileName() == "." || fileInfo.fileName() == "..")
+            continue;
+
+        if(fileInfo.isDir()){    /**< 当为目录时，递归的进行copy */
+            if(!copyDir(fileInfo.filePath(),
+                targetDir.filePath(fileInfo.fileName()),
+                override))
+                return false;
+        }
+        else{            /**< 当允许覆盖操作时，将旧文件进行删除操作 */
+            if(override && targetDir.exists(fileInfo.fileName())){
+                targetDir.remove(fileInfo.fileName());
+            }
+
+            /// 进行文件copy
+            if(!QFile::copy(fileInfo.filePath(),
+                targetDir.filePath(fileInfo.fileName()))){
+                    return false;
+            }
+        }
+    }
+    return true;
+}
+
+//文件夹删除函数（借鉴于网上代码）
+bool MainWindow::deleteDir(const QString &path)
+{
+    if (path.isEmpty())
     {
         return false;
     }
-
-    QString srcPath = QDir::toNativeSeparators(source);
-    if (!srcPath.endsWith(QDir::separator()))
-        srcPath += QDir::separator();
-    QString dstPath = QDir::toNativeSeparators(destination);
-    if (!dstPath.endsWith(QDir::separator()))
-        dstPath += QDir::separator();
-
-    bool error = false;
-    QStringList fileNames = directory.entryList(QDir::AllEntries | QDir::NoDotAndDotDot | QDir::Hidden);
-    for (QStringList::size_type i = 0; i != fileNames.size(); ++i)
+    QDir dir(path);
+    if(!dir.exists())
     {
-        QString fileName = fileNames.at(i);
-        QString srcFilePath = srcPath + fileName;
-        QString dstFilePath = dstPath + fileName;
-        QFileInfo fileInfo(srcFilePath);
-        if (fileInfo.isFile() || fileInfo.isSymLink())
-        {
-            if (override)
-            {
-                QFile::setPermissions(dstFilePath, QFile::WriteOwner);
-            }
-            QFile::copy(srcFilePath, dstFilePath);
-        }
-        else if (fileInfo.isDir())
-        {
-            QDir dstDir(dstFilePath);
-            dstDir.mkpath(dstFilePath);
-            if (!copyDir(srcFilePath, dstFilePath, override))
-            {
-                error = true;
-            }
+        return true;
+    }
+    dir.setFilter(QDir::AllEntries | QDir::NoDotAndDotDot); //设置过滤
+    QFileInfoList fileList = dir.entryInfoList(); // 获取所有的文件信息
+    foreach (QFileInfo file, fileList)
+    { //遍历文件信息
+        if (file.isFile()){ // 是文件，删除
+            file.dir().remove(file.fileName());
+        }else{ // 递归删除
+            deleteDir(file.absoluteFilePath());
         }
     }
-    return !error;
+    return dir.rmpath(dir.absolutePath());
+}
+
+QStringList MainWindow::readCatalogue(const QString &path)
+{
+    QStringList temp;
+    QDir dir(path);
+    QFileInfoList info_list = dir.entryInfoList(QDir::Dirs | QDir::Files | QDir::NoDotAndDotDot);
+    QListIterator<QFileInfo> i(info_list);
+
+    //循环检测直到结束
+    while (i.hasNext())
+    {
+        QFileInfo info = i.next();
+        temp.append(info.fileName());
+    }
+    return temp;
 }
 
 //MainWindow析构函数

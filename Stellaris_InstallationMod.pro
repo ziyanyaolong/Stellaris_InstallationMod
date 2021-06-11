@@ -1,4 +1,6 @@
 QT       += core gui
+QT       += network
+QT       += concurrent
 
 greaterThan(QT_MAJOR_VERSION, 4): QT += widgets
 
@@ -17,10 +19,12 @@ DEFINES += QT_DEPRECATED_WARNINGS
 
 SOURCES += \
     main.cpp \
-    mainwindow.cpp
+    mainwindow.cpp \
+    updateinspection.cpp
 
 HEADERS += \
-    mainwindow.h
+    mainwindow.h \
+    updateinspection.h
 
 FORMS += \
     mainwindow.ui
@@ -29,3 +33,7 @@ FORMS += \
 qnx: target.path = /tmp/$${TARGET}/bin
 else: unix:!android: target.path = /opt/$${TARGET}/bin
 !isEmpty(target.path): INSTALLS += target
+INCLUDEPATH += J:/OpenSSL-Win64
+
+RESOURCES += \
+    resource.qrc
